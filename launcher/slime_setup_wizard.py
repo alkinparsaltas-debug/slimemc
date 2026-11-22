@@ -6,9 +6,16 @@ import threading
 import subprocess
 import urllib.parse
 import urllib.request
+import math
+import time
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import filedialog, messagebox
 import minecraft_launcher_lib
+
+from slime_ui import (
+    BG, SIDEBAR, CARD, BORDER, ACCENT, ACCENT_HI, ACCENT_DK, TEXT, MUTED, DIM, FONT,
+    rrect, RButton, Card, Toggle, ProgressBar, draw_slime,
+)
 
 MC_VERSION = "26.2"
 DEFAULT_DIR = os.path.join(os.getenv("APPDATA", os.path.expanduser("~")), ".slimeclient")
@@ -59,75 +66,144 @@ def create_desktop_shortcut(target_exe: str, shortcut_name: str = "Slime Client"
 class SlimeSetupWizard:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("Slime Client 26.2 Kurulum Sihirbazı")
-        self.root.geometry("560x390")
+        self.root.title("Slime Client 26.2 Kurulum")
+        self.root.geometry("720x480")
         self.root.resizable(False, False)
-        self.root.configure(bg="#13161A")
+        self.root.configure(bg=BG)
 
         self.install_dir = tk.StringVar(value=DEFAULT_DIR)
         self.opt_perf = tk.BooleanVar(value=True)
         self.opt_ping = tk.BooleanVar(value=True)
         self.opt_shortcut = tk.BooleanVar(value=True)
         self.opt_launch_after = tk.BooleanVar(value=True)
+        self.step_index = 0
 
-        # Sol Yan Banner
-        sidebar = tk.Frame(root, bg="#1A1F26", width=165)
-        sidebar.pack(side="left", fill="y")
-        sidebar.pack_propagate(False)
+        # Sol banner
+        self.side = tk.Canvas(root, width=210, bg=SIDEBAR, highlightthickness=0)
+        self.side.pack(side="left", fill="y")
+        self.side.bind("<Configure>", lambda e: self.draw_side())
 
-        tk.Label(sidebar, text="SLIME\nCLIENT", font=("Segoe UI", 19, "bold"), fg="#55FF55", bg="#1A1F26", justify="left").pack(anchor="w", padx=18, pady=(26, 8))
-        tk.Label(sidebar, text="Sürüm 1.0\nMinecraft 26.2\nFabric Altyapısı\nCrackli Destekli", font=("Segoe UI", 9), fg="#8E96A0", bg="#1A1F26", justify="left").pack(anchor="w", padx=18)
-
-        # Sağ İçerik Alanı
-        self.content = tk.Frame(root, bg="#13161A")
-        self.content.pack(side="right", fill="both", expand=True, padx=22, pady=20)
+        self.content = tk.Frame(root, bg=BG)
+        self.content.pack(side="right", fill="both", expand=True, padx=30, pady=26)
 
         self.show_welcome_step()
+        self.animate_logo()
 
+    # ------------------------------------------------------------------ side
+    def draw_side(self):
+        c = self.side
+        c.delete("static")
+        h = c.winfo_height()
+        c.create_text(26, 40, text="SLIME", anchor="w", fill=TEXT, font=(FONT, 20, "bold"), tags="static")
+        c.create_text(26, 66, text="CLIENT", anchor="w", fill=ACCENT, font=(FONT, 20, "bold"), tags="static")
+        c.create_text(26, h - 74, text="Sürüm 1.0", anchor="w", fill=MUTED, font=(FONT, 9), tags="static")
+        c.create_text(26, h - 54, text="Minecraft 26.2", anchor="w", fill=MUTED, font=(FONT, 9), tags="static")
+        c.create_text(26, h - 34, text="Fabric altyapısı", anchor="w", fill=MUTED, font=(FONT, 9), tags="static")
+        self.logo_pos = (105, h / 2 + 20)
+        # adım noktaları
+        for i in range(4):
+            on = i == self.step_index
+            x = 26 + i * 22
+            c.create_oval(x, h - 100, x + 10, h - 90, fill=ACCENT if on else "#1E2C24", outline="", tags="static")
+
+    def animate_logo(self):
+        pos = getattr(self, "logo_pos", None)
+        if pos:
+            t = time.time() * 2.4
+            hop = abs(math.sin(t))
+            squash = 1.0 - 0.14 * (1 - hop) ** 6 + 0.10 * hop
+            self.side.delete("slime")
+            draw_slime(self.side, pos[0], pos[1] - hop * 18, 70, squash=squash, tag="slime")
+        self.root.after(33, self.animate_logo)
+
+    def set_step(self, i: int):
+        self.step_index = i
+        self.draw_side()
+
+    # --------------------------------------------------------------- helpers
     def clear_content(self):
         for widget in self.content.winfo_children():
             widget.destroy()
 
-    def show_welcome_step(self):
-        self.clear_content()
-        tk.Label(self.content, text="Slime Client 26.2 Kurulumuna Hoş Geldiniz", font=("Segoe UI", 13, "bold"), fg="#FFFFFF", bg="#13161A").pack(anchor="w", pady=(6, 12))
-        desc = (
-            "Bu sihirbaz bilgisayarınıza yüksek FPS odaklı Slime Client\n"
-            "26.2 paketini ve çevrimdışı destekli başlatıcıyı kuracaktır.\n\n"
-            "Kurulacak Bileşenler:\n"
-            "• Minecraft 26.2 & Fabric Loader\n"
-            "• Slime Client Özel HUD (FPS, CPS, Koordinat)\n"
-            "• Sodium, Lithium & Entity Culling FPS Paketi\n"
-            "• Ping Wheel (Oyun İçi İşaretleme) & Zoomify"
-        )
-        tk.Label(self.content, text=desc, font=("Segoe UI", 9), fg="#C5CBD3", bg="#13161A", justify="left").pack(anchor="w")
+    def heading(self, title, sub=None):
+        tk.Label(self.content, text=title, font=(FONT, 18, "bold"), fg=TEXT, bg=BG).pack(anchor="w")
+        if sub:
+            tk.Label(self.content, text=sub, font=(FONT, 10), fg=MUTED, bg=BG,
+                     justify="left").pack(anchor="w", pady=(4, 0))
 
-        nav = tk.Frame(self.content, bg="#13161A")
+    def nav_bar(self):
+        nav = tk.Frame(self.content, bg=BG)
         nav.pack(side="bottom", fill="x")
-        tk.Button(nav, text="İleri >", font=("Segoe UI", 9, "bold"), bg="#55FF55", fg="#0D1117", width=12, relief="flat", cursor="hand2", command=self.show_options_step).pack(side="right")
+        return nav
+
+    def primary(self, parent, text, cmd, width=130):
+        return RButton(parent, text, cmd, width=width, height=40, radius=12, parent_bg=BG,
+                       font=(FONT, 10, "bold"))
+
+    def secondary(self, parent, text, cmd, width=100):
+        return RButton(parent, text, cmd, width=width, height=40, radius=12, bg="#1A251F",
+                       hover="#223229", fg=MUTED, parent_bg=BG, font=(FONT, 10, "bold"))
+
+    def toggle_row(self, parent, text, var):
+        row = tk.Frame(parent, bg=CARD)
+        row.pack(fill="x", pady=5)
+        tk.Label(row, text=text, font=(FONT, 10), fg=TEXT, bg=CARD, wraplength=330,
+                 justify="left").pack(side="left")
+        Toggle(row, var, parent_bg=CARD).pack(side="right")
+
+    # ----------------------------------------------------------------- steps
+    def show_welcome_step(self):
+        self.set_step(0)
+        self.clear_content()
+        self.heading("Hoş geldin!", "Slime Client 26.2 kurulum sihirbazı birkaç adımda\nher şeyi senin için hazırlayacak.")
+
+        card = Card(self.content)
+        card.pack(fill="x", pady=(20, 0))
+        tk.Label(card.inner, text="KURULACAKLAR", font=(FONT, 8, "bold"), fg=ACCENT, bg=CARD).pack(anchor="w", pady=(0, 6))
+        for line in (
+            "Minecraft 26.2 ve Fabric Loader",
+            "Slime Client HUD (FPS, CPS, koordinat)",
+            "Sodium, Lithium ve Entity Culling FPS paketi",
+            "Ping Wheel (işaretleme) ve Zoomify",
+        ):
+            r = tk.Frame(card.inner, bg=CARD)
+            r.pack(fill="x", pady=2)
+            tk.Label(r, text="\u2713", font=(FONT, 10, "bold"), fg=ACCENT, bg=CARD).pack(side="left", padx=(0, 10))
+            tk.Label(r, text=line, font=(FONT, 10), fg=TEXT, bg=CARD).pack(side="left")
+
+        nav = self.nav_bar()
+        self.primary(nav, "İleri  \u203A", self.show_options_step).pack(side="right")
 
     def show_options_step(self):
+        self.set_step(1)
         self.clear_content()
-        tk.Label(self.content, text="Kurulum Ayarları", font=("Segoe UI", 13, "bold"), fg="#FFFFFF", bg="#13161A").pack(anchor="w", pady=(6, 10))
+        self.heading("Kurulum ayarları")
 
-        tk.Label(self.content, text="Hedef Klasör:", font=("Segoe UI", 9, "bold"), fg="#E8EAED", bg="#13161A").pack(anchor="w")
-        dir_row = tk.Frame(self.content, bg="#13161A")
-        dir_row.pack(fill="x", pady=(4, 14))
-        tk.Entry(dir_row, textvariable=self.install_dir, font=("Segoe UI", 9), bg="#1E2228", fg="#FFFFFF", relief="flat").pack(side="left", fill="x", expand=True, ipady=4)
-        tk.Button(dir_row, text="Gözat...", font=("Segoe UI", 8), bg="#2B313A", fg="#FFFFFF", relief="flat", command=self.browse_dir).pack(side="right", padx=(6, 0), ipady=3)
+        dir_card = Card(self.content)
+        dir_card.pack(fill="x", pady=(16, 12))
+        tk.Label(dir_card.inner, text="HEDEF KLASÖR", font=(FONT, 8, "bold"), fg=ACCENT, bg=CARD).pack(anchor="w")
+        row = tk.Frame(dir_card.inner, bg=CARD)
+        row.pack(fill="x", pady=(8, 0))
+        RButton(row, "Gözat", self.browse_dir, width=80, height=36, radius=10, bg="#1A251F",
+                hover="#223229", fg=TEXT, parent_bg=CARD, font=(FONT, 9, "bold")).pack(side="right", padx=(8, 0))
+        entry_card = Card(row, parent_bg=CARD, fill="#0D1511", outline=BORDER, radius=10, pad=3)
+        entry_card.pack(side="left", fill="x", expand=True)
+        e = tk.Entry(entry_card.inner, textvariable=self.install_dir, font=(FONT, 10), bg="#0D1511",
+                     fg=TEXT, insertbackground=ACCENT, relief="flat", bd=5, highlightthickness=0)
+        e.pack(fill="x")
+        e.bind("<FocusIn>", lambda ev: entry_card.set_outline(ACCENT))
+        e.bind("<FocusOut>", lambda ev: entry_card.set_outline(BORDER))
 
-        tk.Label(self.content, text="Ek Paketler ve Kısayollar:", font=("Segoe UI", 9, "bold"), fg="#E8EAED", bg="#13161A").pack(anchor="w", pady=(0, 4))
-        for text, var in [
-            ("26.2 FPS Paketi (Sodium, Lithium, Entity Culling, ImmediatelyFast)", self.opt_perf),
-            ("Oyun İçi İşaretleme (Ping Wheel) ve Yakınlaştırma (Zoomify)", self.opt_ping),
-            ("Masaüstüne Slime Client kısayolu oluştur", self.opt_shortcut),
-        ]:
-            tk.Checkbutton(self.content, text=text, variable=var, font=("Segoe UI", 9), fg="#C5CBD3", bg="#13161A", selectcolor="#1E2228", activebackground="#13161A", activeforeground="#FFFFFF").pack(anchor="w", pady=2)
+        opt_card = Card(self.content)
+        opt_card.pack(fill="x")
+        tk.Label(opt_card.inner, text="EK PAKETLER", font=(FONT, 8, "bold"), fg=ACCENT, bg=CARD).pack(anchor="w", pady=(0, 2))
+        self.toggle_row(opt_card.inner, "FPS paketi (Sodium, Lithium, Entity Culling, ImmediatelyFast)", self.opt_perf)
+        self.toggle_row(opt_card.inner, "İşaretleme (Ping Wheel) ve yakınlaştırma (Zoomify)", self.opt_ping)
+        self.toggle_row(opt_card.inner, "Masaüstüne kısayol oluştur", self.opt_shortcut)
 
-        nav = tk.Frame(self.content, bg="#13161A")
-        nav.pack(side="bottom", fill="x")
-        tk.Button(nav, text="Kur >", font=("Segoe UI", 9, "bold"), bg="#55FF55", fg="#0D1117", width=12, relief="flat", cursor="hand2", command=self.show_install_step).pack(side="right")
-        tk.Button(nav, text="< Geri", font=("Segoe UI", 9), bg="#2B313A", fg="#FFFFFF", width=10, relief="flat", command=self.show_welcome_step).pack(side="right", padx=(0, 8))
+        nav = self.nav_bar()
+        self.primary(nav, "Kur  \u203A", self.show_install_step).pack(side="right")
+        self.secondary(nav, "\u2039  Geri", self.show_welcome_step).pack(side="right", padx=(0, 8))
 
     def browse_dir(self):
         selected = filedialog.askdirectory(initialdir=self.install_dir.get())
@@ -135,25 +211,29 @@ class SlimeSetupWizard:
             self.install_dir.set(selected)
 
     def show_install_step(self):
+        self.set_step(2)
         self.clear_content()
-        tk.Label(self.content, text="Slime Client 26.2 Kuruluyor...", font=("Segoe UI", 13, "bold"), fg="#FFFFFF", bg="#13161A").pack(anchor="w", pady=(6, 8))
-        tk.Label(self.content, text="Gerekli dosyalar indiriliyor ve yapılandırılıyor. Lütfen bekleyin.", font=("Segoe UI", 9), fg="#9AA0A6", bg="#13161A").pack(anchor="w", pady=(0, 16))
+        self.heading("Kuruluyor...", "Gerekli dosyalar indiriliyor, lütfen bekle.")
 
-        self.status_label = tk.Label(self.content, text="Hazırlanıyor...", font=("Segoe UI", 9, "bold"), fg="#55FF55", bg="#13161A")
-        self.status_label.pack(anchor="w", pady=(0, 6))
+        self.status_label = tk.Label(self.content, text="Hazırlanıyor...", font=(FONT, 10, "bold"),
+                                     fg=ACCENT, bg=BG)
+        self.status_label.pack(anchor="w", pady=(18, 8))
 
-        self.progress = ttk.Progressbar(self.content, mode="determinate", maximum=100)
-        self.progress.pack(fill="x", ipady=4)
+        self.progress = ProgressBar(self.content, width=300, height=10, parent_bg=BG)
+        self.progress.pack(fill="x")
 
-        self.log_box = tk.Text(self.content, height=8, font=("Consolas", 8), bg="#0E1013", fg="#9AA0A6", relief="flat", state="disabled")
-        self.log_box.pack(fill="both", expand=True, pady=(12, 0))
+        log_card = Card(self.content, fill="#0B120E", pad=10, radius=14)
+        log_card.pack(fill="both", expand=True, pady=(16, 0))
+        self.log_box = tk.Text(log_card.inner, height=8, font=("Consolas", 9), bg="#0B120E", fg=MUTED,
+                               relief="flat", state="disabled", highlightthickness=0, bd=0)
+        self.log_box.pack(fill="both", expand=True)
 
         threading.Thread(target=self.run_installation, daemon=True).start()
 
     def update_ui(self, status: str, pct: int, log_line: str = ""):
         def _update():
             self.status_label.config(text=status)
-            self.progress["value"] = pct
+            self.progress.set(pct)
             if log_line:
                 self.log_box.config(state="normal")
                 self.log_box.insert("end", log_line + "\n")
@@ -212,29 +292,21 @@ class SlimeSetupWizard:
             self.root.after(0, lambda: messagebox.showerror("Kurulum Hatası", f"Kurulum sırasında hata oluştu:\n{e}"))
 
     def show_finish_step(self, launcher_exe: str):
+        self.set_step(3)
         self.clear_content()
-        tk.Label(self.content, text="Kurulum Tamamlandı", font=("Segoe UI", 14, "bold"), fg="#55FF55", bg="#13161A").pack(anchor="w", pady=(6, 12))
-        tk.Label(
-            self.content,
-            text="Slime Client 26.2 bilgisayarınıza başarıyla kuruldu.\nMasaüstündeki kısayoldan veya aşağıdaki seçenekle oyunu başlatabilirsiniz.",
-            font=("Segoe UI", 9), fg="#C5CBD3", bg="#13161A", justify="left"
-        ).pack(anchor="w", pady=(0, 16))
+        self.heading("Kurulum tamamlandı!", "Slime Client 26.2 bilgisayarına başarıyla kuruldu.\nMasaüstündeki kısayoldan ya da aşağıdan oyunu açabilirsin.")
 
-        tk.Checkbutton(
-            self.content, text="Slime Client Başlatıcısını şimdi aç",
-            variable=self.opt_launch_after, font=("Segoe UI", 9, "bold"),
-            fg="#FFFFFF", bg="#13161A", selectcolor="#1E2228",
-            activebackground="#13161A", activeforeground="#FFFFFF"
-        ).pack(anchor="w")
+        card = Card(self.content)
+        card.pack(fill="x", pady=(20, 0))
+        self.toggle_row(card.inner, "Başlatıcıyı şimdi aç", self.opt_launch_after)
 
         def finish():
             if self.opt_launch_after.get() and os.path.exists(launcher_exe):
                 subprocess.Popen([launcher_exe])
             self.root.destroy()
 
-        nav = tk.Frame(self.content, bg="#13161A")
-        nav.pack(side="bottom", fill="x")
-        tk.Button(nav, text="Bitir", font=("Segoe UI", 9, "bold"), bg="#55FF55", fg="#0D1117", width=12, relief="flat", cursor="hand2", command=finish).pack(side="right")
+        nav = self.nav_bar()
+        self.primary(nav, "Bitir", finish).pack(side="right")
 
 
 if __name__ == "__main__":
