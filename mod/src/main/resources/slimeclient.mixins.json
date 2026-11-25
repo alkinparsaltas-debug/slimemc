@@ -1,12 +1,12 @@
 {
-  "required": false,
-  "minVersion": "0.8",
+  "required": true,
   "package": "com.slime.client.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "MinecraftMixin"
+    "MinecraftMixin",
+    "PauseScreenMixin"
   ],
   "injectors": {
-    "defaultRequire": 0
+    "defaultRequire": 1
   }
 }
