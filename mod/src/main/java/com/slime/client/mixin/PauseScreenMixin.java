@@ -1,6 +1,5 @@
 package com.slime.client.mixin;
 
-import com.slime.client.DepthButton;
 import com.slime.client.SlimeMenuScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.PauseScreen;
@@ -15,11 +14,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class PauseScreenMixin extends Screen {
     protected PauseScreenMixin(Component title) { super(title); }
 
-    @Inject(method = "init(Lnet/minecraft/client/Minecraft;II)V", at = @At("RETURN"))
-    private void slime$addMenuButton(Minecraft client, int w, int h, CallbackInfo ci) {
-        this.addRenderableWidget(new DepthButton(
-                this.width / 2 - 100, this.height / 2 + 100, 200, 20,
+    @Inject(method = "init()V", at = @At("RETURN"))
+    private void slime$addMenuButton(CallbackInfo ci) {
+        this.addRenderableWidget(new com.slime.client.DepthButton(
+                this.width / 2 - 100, this.height / 2 + 84, 200, 20,
                 Component.literal("Slime Client Menü"),
-                b -> client.setScreen(new SlimeMenuScreen()), true, false));
+                b -> Minecraft.getInstance().setScreen(new SlimeMenuScreen()), true, false));
     }
 }
