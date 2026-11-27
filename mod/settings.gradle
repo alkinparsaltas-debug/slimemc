@@ -8,3 +8,20 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+    repositories {
+        maven {
+            url = 'https://libraries.minecraft.net/'
+            metadataSources {
+                mavenPom()
+                artifact()
+            }
+        }
+        maven { url = 'https://maven.fabricmc.net/' }
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'mod'
