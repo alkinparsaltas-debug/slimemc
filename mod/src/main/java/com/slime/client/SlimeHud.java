@@ -53,28 +53,23 @@ public final class SlimeHud {
         int h = (int) (34 * c.hudScale);
         int x = 6, y = 6 + lift;
 
-        g.pose().pushPose();
-        g.pose().translate(0, 0, 0);
         DepthPanel.panel(g, x, y, w, h, SlimeTheme.RADIUS, SlimeTheme.DEPTH_PANEL,
                 SlimeTheme.withAlpha(SlimeTheme.SURFACE, e), 0xFF0F1418, 0.3 * e);
-        // accent şerit + 3 s nabız loop (kural 5)
         double pulse = SlimeMotion.loop(now, SlimeTheme.LOOP_S);
         g.fill(x, y, x + 2, y + h, SlimeTheme.withAlpha(SlimeTheme.ACCENT, e * (0.6 + 0.4 * pulse)));
-        // gerçek full-colour ikonlar (kural 7)
-        int iy = y + h / 2 - 8;
-        renderItem(g, new ItemStack(Items.CLOCK), x + 6, iy, e);
-        renderItem(g, new ItemStack(Items.IRON_SWORD), x + 6, iy, e); // aynı slot: CPS ikonu altta
-        g.pose().popPose();
 
-        g.drawString(mc.font, Component.literal(header), x + 28, y + 6, SlimeTheme.withAlpha(SlimeTheme.ACCENT, e), true);
-        g.drawString(mc.font, Component.literal(stats.toString()), x + 28, y + 18, SlimeTheme.withAlpha(SlimeTheme.INK, e), true);
+        renderItem(g, new ItemStack(Items.CLOCK), x + 8, y + 5);
+        renderItem(g, new ItemStack(Items.IRON_SWORD), x + 8, y + 17);
+
+        g.drawString(mc.font, Component.literal(header), x + 26, y + 6, SlimeTheme.withAlpha(SlimeTheme.ACCENT, e), true);
+        g.drawString(mc.font, Component.literal(stats.toString()), x + 26, y + 18, SlimeTheme.withAlpha(SlimeTheme.INK, e), true);
     }
 
-    private static void renderItem(GuiGraphics g, ItemStack s, int x, int y, double a) {
-        g.pose().pushPose();
-        g.pose().translate(x, y, 0);
-        g.pose().scale(0.5f, 0.5f, 1f);
+    private static void renderItem(GuiGraphics g, ItemStack s, int x, int y) {
+        g.pose().pushMatrix();
+        g.pose().translate(x, y);
+        g.pose().scale(0.6f, 0.6f);
         g.renderItem(s, 0, 0);
-        g.pose().popPose();
+        g.pose().popMatrix();
     }
 }
