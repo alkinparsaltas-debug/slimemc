@@ -6,8 +6,11 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
 
-/** Derinlikli buton: hover'da 2px kalkar, tıklamada step atar (kural 5). */
+import java.util.function.BooleanSupplier;
+
 public class DepthButton extends Button {
     static final OnPress NOOP = b -> {};
 
@@ -54,12 +57,11 @@ public class DepthButton extends Button {
     }
 }
 
-/** Sekme butonu: underline hover/seçili'de 0->tam genişlik çizilir (kural 5). */
 class TabButton extends Button {
     private double drawT = 0;
-    private final boolean[] selected;
+    private final BooleanSupplier selected;
 
-    TabButton(int x, int y, int w, Component msg, boolean[] selected, OnPress p) {
+    TabButton(int x, int y, int w, Component msg, BooleanSupplier selected, OnPress p) {
         super(x, y, w, 18, msg, p, DEFAULT_NARRATION);
         this.selected = selected;
     }
@@ -67,7 +69,7 @@ class TabButton extends Button {
     @Override
     protected void renderWidget(GuiGraphics g, int mx, int my, float d) {
         Font font = Minecraft.getInstance().font;
-        boolean on = active && selected[0];
+        boolean on = active && selected.getAsBoolean();
         double target = (on || isHovered()) ? 1 : 0;
         drawT = SlimeMotion.approach(drawT, target, d, 200);
         int col = on ? SlimeTheme.ACCENT : (isHovered() ? SlimeTheme.INK : SlimeTheme.MUTED);
@@ -80,14 +82,13 @@ class TabButton extends Button {
     }
 }
 
-/** Aç/kapa kartı: config'i yazar, state noktası + hover lift. */
 class ToggleCard extends DepthButton {
     private final String label;
     private final Runnable toggle;
-    private final java.util.function.BooleanSupplier state;
+    private final BooleanSupplier state;
 
-    ToggleCard(String label, int x, int y, int w, Runnable toggle, java.util.function.BooleanSupplier state) {
-        super(x, y, w, 24, Component.literal(label), b -> { toggle.run(); }, false, false);
+    ToggleCard(String label, int x, int y, int w, Runnable toggle, BooleanSupplier state) {
+        super(x, y, w, 24, Component.empty(), b -> {}, false, false);
         this.label = label;
         this.toggle = toggle;
         this.state = state;
@@ -102,8 +103,8 @@ class ToggleCard extends DepthButton {
 
     @Override
     protected void renderWidget(GuiGraphics g, int mx, int my, float d) {
-        super.renderWidget(g, mx, my, d);
         Font font = Minecraft.getInstance().font;
+        super.renderWidget(g, mx, my, d);
         boolean on = state.getAsBoolean();
         int cx = getX() + getWidth() - 14, cy = getY() + getHeight() / 2 - 2;
         DepthPanel.roundRect(g, cx - 8, cy - 4, 16, 8, 4, on ? SlimeTheme.ACCENT_DK : 0xFF3A4048);
@@ -113,27 +114,24 @@ class ToggleCard extends DepthButton {
     }
 }
 
-/** HUD ölçek kartı: - / + step butonları. */
 class ScaleCard extends DepthButton {
     ScaleCard(int x, int y, int w) {
-        super(x, y, w, 24, Component.literal("HUD Ölçeği"), b -> {}, false, false);
-        addSubButtons(x, y, w);
+        super(x, y, w, 24, Component.empty(), b -> {}, false, false);
     }
-    private void addSubButtons(int x, int y, int w) {
-        // Alt butonlar ebeveyn Screen tarafından eklenir (initTab içinde) - burada sadece render.
-    }
+
     @Override
     protected void renderWidget(GuiGraphics g, int mx, int my, float d) {
-        super.renderWidget(g, mx, my, d);
         Font font = Minecraft.getInstance().font;
-        String scaleText = String.format("%.1fx", SlimeConfig.get().hudScale);
-        g.drawString(font, Component.literal(scaleText),
-                getX() + getWidth() - 10 - font.width(scaleText),
+        super.renderWidget(g, mx, my, d);
+        g.drawString(font, Component.literal("HUD Ölçeği"), getX() + 10, getY() + (getHeight() - 9) / 2,
+                SlimeTheme.INK, true);
+        String val = String.format("%.1fx", SlimeConfig.get().hudScale);
+        g.drawString(font, Component.literal(val),
+                getX() + getWidth() - 108 - font.width(val),
                 getY() + (getHeight() - 9) / 2, SlimeTheme.ACCENT, true);
     }
 }
 
-/** Gerçek item ikonlu kart: loop 3 s nabız + hover zoom 1.02-1.03 (kural 5/7). Caption YOK (kural 1). */
 class IconCard {
     final ItemStack icon;
     final Component label;
@@ -154,41 +152,37 @@ class IconCard {
         int lift = (int) Math.round(-2 * hoverT);
         DepthPanel.panel(g, x, y + lift, w, h, SlimeTheme.RADIUS, SlimeTheme.DEPTH_CARD,
                 SlimeTheme.SURFACE, 0xFF0F1418, hoverT);
-        g.pose().pushPose();
-        g.pose().translate(x + w / 2f, y + h / 2f - 4, 0);
-        g.pose().scale((float) zoom, (float) zoom, 1f);
+        g.pose().pushMatrix();
+        g.pose().translate(x + w / 2f, y + h / 2f - 4);
+        g.pose().scale((float) zoom, (float) zoom);
         g.renderItem(icon, -8, -8);
-        g.pose().popPose();
+        g.pose().popMatrix();
         g.drawCenteredString(font, label, x + w / 2, y + h - 14,
                 hoverT > 0.5 ? SlimeTheme.INK : SlimeTheme.MUTED);
     }
 }
 
-/** Referans fotoğrafların GUI karşılığı: düz köy <-> çöl köyü bölüm anı (photo-chapters). */
 class VillageChapter {
     private static final ItemStack[] PLAINS = {
-            stack(net.minecraft.world.level.block.Blocks.OAK_LOG), stack(net.minecraft.world.level.block.Blocks.HAY_BLOCK),
-            stack(net.minecraft.world.level.block.Blocks.OAK_PLANKS), stack(net.minecraft.world.level.block.Blocks.COBBLESTONE),
-            stack(net.minecraft.world.level.block.Blocks.GRASS_BLOCK), stack(net.minecraft.world.item.Items.LANTERN),
-            stack(net.minecraft.world.item.Items.WHEAT), stack(net.minecraft.world.level.block.Blocks.WATER),
-            stack(net.minecraft.world.item.Items.POPPY), stack(net.minecraft.world.item.Items.DANDELION),
-            stack(net.minecraft.world.level.block.Blocks.OAK_FENCE) };
+            new ItemStack(Blocks.OAK_LOG), new ItemStack(Blocks.HAY_BLOCK),
+            new ItemStack(Blocks.OAK_PLANKS), new ItemStack(Blocks.COBBLESTONE),
+            new ItemStack(Blocks.GRASS_BLOCK), new ItemStack(Items.LANTERN),
+            new ItemStack(Items.WHEAT), new ItemStack(Items.WATER_BUCKET),
+            new ItemStack(Items.POPPY), new ItemStack(Items.DANDELION),
+            new ItemStack(Blocks.OAK_FENCE) };
     private static final ItemStack[] DESERT = {
-            stack(net.minecraft.world.level.block.Blocks.SAND), stack(net.minecraft.world.level.block.Blocks.SANDSTONE),
-            stack(net.minecraft.world.level.block.Blocks.CACTUS), stack(net.minecraft.world.level.block.Blocks.HAY_BLOCK),
-            stack(net.minecraft.world.item.Items.DEAD_BUSH), stack(net.minecraft.world.item.Items.WHEAT),
-            stack(net.minecraft.world.level.block.Blocks.SANDSTONE), stack(net.minecraft.world.level.block.Blocks.SAND) };
+            new ItemStack(Blocks.SAND), new ItemStack(Blocks.SANDSTONE),
+            new ItemStack(Blocks.CACTUS), new ItemStack(Blocks.HAY_BLOCK),
+            new ItemStack(Items.DEAD_BUSH), new ItemStack(Items.WHEAT),
+            new ItemStack(Blocks.SANDSTONE), new ItemStack(Blocks.SAND) };
     private static final int COLS = 7, ROWS = 3;
     private long start = System.currentTimeMillis();
     private boolean wasHover = false;
 
-    private static ItemStack stack(net.minecraft.world.level.block.Block b) { return new ItemStack(b); }
-    private static ItemStack stack(net.minecraft.world.item.Item i) { return new ItemStack(i); }
-
     void render(GuiGraphics g, int x, int y, int w, int h, int mx, int my, float d) {
         long now = System.currentTimeMillis();
         boolean hov = mx >= x && mx < x + w && my >= y && my < y + h;
-        if (hov && !wasHover) start = now;          // hover'da loop restart (kural 5)
+        if (hov && !wasHover) start = now;
         wasHover = hov;
         double t = SlimeMotion.clamp01((now - start) / (double) SlimeTheme.CHAPTER_MS);
         double slide;
@@ -214,11 +208,11 @@ class VillageChapter {
             for (int col = 0; col < COLS; col++) {
                 ItemStack st = tiles[idx % tiles.length];
                 idx++;
-                g.pose().pushPose();
-                g.pose().translate(ox + col * 16f * s, oy + row * 16f * s, 0);
-                g.pose().scale(s, s, 1f);
+                g.pose().pushMatrix();
+                g.pose().translate(ox + col * 16f * s, oy + row * 16f * s);
+                g.pose().scale(s, s);
                 g.renderItem(st, 0, 0);
-                g.pose().popPose();
+                g.pose().popMatrix();
             }
         }
     }
