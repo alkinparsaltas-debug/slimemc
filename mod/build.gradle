@@ -11,8 +11,18 @@ base {
 }
 
 repositories {
-    maven { url = 'https://libraries.minecraft.net/' }
-    maven { url = 'https://maven.fabricmc.net/' }
+    maven {
+        name = 'Mojang'
+        url = 'https://libraries.minecraft.net/'
+        metadataSources {
+            mavenPom()
+            artifact()
+        }
+    }
+    maven {
+        name = 'Fabric'
+        url = 'https://maven.fabricmc.net/'
+    }
     mavenCentral()
 }
 
