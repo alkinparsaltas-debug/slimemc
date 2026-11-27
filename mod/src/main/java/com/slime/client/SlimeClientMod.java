@@ -17,7 +17,6 @@ public class SlimeClientMod implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(SlimeHud.TICK);
         HudRenderCallback.EVENT.register(SlimeHud::render);
 
-        // Menü erişimi: /slime komutu (pause menüsüne buton mixin'i ekler)
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registry) ->
                 dispatcher.register(ClientCommandManager.literal("slime")
                         .executes(ctx -> {
