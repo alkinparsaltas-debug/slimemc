@@ -11,11 +11,9 @@ import net.minecraft.world.level.block.Blocks;
 import java.util.ArrayList;
 import java.util.List;
 
-/** kind=gaming: hero ilk ekranda yalnız, her sekme = bir ekran, equal edges, tek footer kredisi. */
 public class SlimeMenuScreen extends Screen {
     private enum Tab { HERO, VILLAGES, HUD, ABOUT }
     private Tab tab = Tab.HERO;
-    private final boolean[] sel = new boolean[1];
     private final VillageChapter chapter = new VillageChapter();
     private final List<IconCard> icons = new ArrayList<>();
     private long heroBorn = 0;
@@ -33,13 +31,10 @@ public class SlimeMenuScreen extends Screen {
         this.clearWidgets();
         List<AbstractWidget> ws = new ArrayList<>();
 
-        // nav-centre (gaming deal): hero ekranında sekme yok (kural 3: hero alone)
         if (tab != Tab.HERO) {
-            TabButton t1 = new TabButton(wrapX + wrapW / 2 - 120, 18, 80, Component.literal("Köyler"), sel, b -> go(Tab.VILLAGES));
-            TabButton t2 = new TabButton(wrapX + wrapW / 2 - 20, 18, 60, Component.literal("HUD"), sel, b -> go(Tab.HUD));
-            TabButton t3 = new TabButton(wrapX + wrapW / 2 + 60, 18, 60, Component.literal("Hakkında"), sel, b -> go(Tab.ABOUT));
-            sel[0] = true;
-            ws.add(t1); ws.add(t2); ws.add(t3);
+            ws.add(new TabButton(wrapX + wrapW / 2 - 120, 18, 80, Component.literal("Köyler"), () -> tab == Tab.VILLAGES, b -> go(Tab.VILLAGES)));
+            ws.add(new TabButton(wrapX + wrapW / 2 - 20, 18, 60, Component.literal("HUD"), () -> tab == Tab.HUD, b -> go(Tab.HUD)));
+            ws.add(new TabButton(wrapX + wrapW / 2 + 60, 18, 60, Component.literal("Hakkında"), () -> tab == Tab.ABOUT, b -> go(Tab.ABOUT)));
         }
 
         int top = 56;
@@ -57,7 +52,7 @@ public class SlimeMenuScreen extends Screen {
                 icons.add(new IconCard(new ItemStack(Blocks.HAY_BLOCK), Component.literal("Saman"), wrapX + 188, top + 150, 84, 56));
                 icons.add(new IconCard(new ItemStack(Blocks.SANDSTONE), Component.literal("Kumtaşı"), wrapX + 282, top + 150, 84, 56));
                 icons.add(new IconCard(new ItemStack(Blocks.CACTUS), Component.literal("Kaktüs"), wrapX + 376, top + 150, 84, 56));
-                icons.add(new IconCard(new ItemStack(Blocks.WATER), Component.literal("Su"), wrapX + 470, top + 150, 84, 56));
+                icons.add(new IconCard(new ItemStack(Items.WATER_BUCKET), Component.literal("Su"), wrapX + 470, top + 150, 84, 56));
             }
             case HUD -> {
                 SlimeConfig c = SlimeConfig.get();
@@ -66,8 +61,7 @@ public class SlimeMenuScreen extends Screen {
                 ws.add(new ToggleCard("CPS", wrapX, top + 60, wrapW, () -> c.hudCps = !c.hudCps, () -> c.hudCps));
                 ws.add(new ToggleCard("Koordinatlar", wrapX, top + 90, wrapW, () -> c.hudCoords = !c.hudCoords, () -> c.hudCoords));
                 ws.add(new ToggleCard("Azaltılmış Hareket", wrapX, top + 120, wrapW, () -> c.motionReduced = !c.motionReduced, () -> c.motionReduced));
-                ScaleCard sc = new ScaleCard(wrapX, top + 150, wrapW);
-                ws.add(sc);
+                ws.add(new ScaleCard(wrapX, top + 150, wrapW));
                 ws.add(DepthButton.pill(Component.literal("−"), wrapX + wrapW - 96, top + 152, 28, 20,
                         b -> { c.hudScale = Math.max(0.8, c.hudScale - 0.1); c.save(); }));
                 ws.add(DepthButton.pill(Component.literal("+"), wrapX + wrapW - 62, top + 152, 28, 20,
@@ -91,7 +85,6 @@ public class SlimeMenuScreen extends Screen {
     public void render(GuiGraphics g, int mx, int my, float d) {
         long now = System.currentTimeMillis();
         if (heroBorn == 0) heroBorn = now;
-        // dark-band zemin (gaming deal)
         g.fill(0, 0, this.width, this.height, SlimeTheme.BG);
         for (int i = 0; i < 120; i++) {
             g.fill(0, i, this.width, i + 1, SlimeTheme.withAlpha(SlimeTheme.BG_SOFT, (120 - i) / 240.0));
@@ -108,7 +101,6 @@ public class SlimeMenuScreen extends Screen {
             for (IconCard ic : icons) ic.render(g, mx, my, d, now);
         }
         super.render(g, mx, my, d);
-        // tek footer kredi satırı (kural 1)
         g.drawCenteredString(this.font, Component.literal("Doku ve ikonlar: Minecraft vanilla • Slime Client © 2026"),
                 this.width / 2, this.height - 12, SlimeTheme.MUTED);
     }
@@ -121,26 +113,21 @@ public class SlimeMenuScreen extends Screen {
         double e = heroEnteredOnce ? 1 : SlimeMotion.enter(now - heroBorn);
         if (e >= 1) heroEnteredOnce = true;
         int dy = (int) Math.round((1 - e) * 12);
-        int a = (int) Math.round(e * 255);
-        g.pose().pushPose();
-        g.pose().translate(0, dy, 0);
+        g.pose().pushMatrix();
+        g.pose().translate(0, dy);
         g.drawCenteredString(this.font, Component.literal("Slime Client 26.2"),
                 this.width / 2, 96, SlimeTheme.withAlpha(SlimeTheme.INK, e));
         g.drawCenteredString(this.font, Component.literal("Özel istemci • Fabric 26.2 • FPS, CPS ve koordinat HUD'i"),
                 this.width / 2, 116, SlimeTheme.withAlpha(SlimeTheme.MUTED, e));
-        // tek hard fact ilk ekranda (copy kuralı)
         g.drawCenteredString(this.font, Component.literal("Sodium + Lithium + EntityCulling + ImmediatelyFast hazır"),
                 this.width / 2, 132, SlimeTheme.withAlpha(SlimeTheme.HAY, e));
-        g.pose().popPose();
-        if (a < 255) g.fill(0, 0, 0, 0, 0); // (alpha zaten renklerde)
+        g.pose().popMatrix();
     }
 
     private void renderAbout(GuiGraphics g, long now) {
-        // type moment: sürüm büyük set (kural: bir type moment)
         double pulse = SlimeMotion.loop(now, 4);
         int col = SlimeTheme.withAlpha(SlimeTheme.ACCENT, 0.75 + 0.25 * pulse);
         g.drawCenteredString(this.font, Component.literal("26.2"), this.width / 2, 70, col);
-        // close-word (gaming deal)
         g.drawCenteredString(this.font, Component.literal("SlimeMC"), this.width / 2, 96, SlimeTheme.WOOD, true);
     }
 }
